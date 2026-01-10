@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Avantar - Listagem Completa</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow-x: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; min-width: 800px; }
+        .filtros { display: flex; gap: 10px; align-items: center; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 13px; }
+        th { background-color: #004a8d; color: white; white-space: nowrap; }
+        
+        /* Alerta de Urgência */
+        .atrasado { background-color: #fff0f0 !important; }
+        .atrasado .data-urgente { color: #d32f2f; font-weight: bold; text-decoration: underline; }
+
+        .badge { padding: 4px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+        .status-novo { background: #e1f5fe; color: #01579b; }
+        .status-sucesso { background: #e8f5e9; color: #2e7d32; }
+        .status-alerta { background: #fff3cd; color: #856404; }
+        .status-erro { background: #f8d7da; color: #721c24; }
+        
+        input, select, textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .valor { font-weight: bold; color: #2c3e50; }
+
+        /* Estilo do Modal */
+        .nome-link { color: #004a8d; text-decoration: underline; cursor: pointer; }
+        .nome-link:hover { color: #003566; }
+
+        .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+        .modal-content { background: white; margin: 2% auto; padding: 25px; border-radius: 10px; width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        .btn-save { background: #28a745; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 15px; font-weight: bold; }
+        .btn-urgente { background: #d32f2f; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        /* Timeline de Histórico */
+        .timeline { background: #f9f9f9; padding: 10px; border-radius: 4px; border-left: 3px solid #004a8d; margin-top: 10px; font-size: 12px; max-height: 150px; overflow-y: auto; }
+        .timeline-item { margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+        .timeline-date { color: #666; font-weight: bold; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>Controle de Prospecção Avantar</h2>
+        <div class="filtros">
+            <input type="text" id="buscaNome" placeholder="Buscar cliente..." onkeyup="filtrarTabela()">
+            <select id="filtroStatus" onchange="filtrarTabela()">
+                <option value="">Todos os Status</option>
+                <option value="Novo">Novo</option>
+                <option value="Contato realizado">Contato realizado</option>
+                <option value="Contato sem êxito">Contato sem êxito</option>
+                <option value="Incompleto">Incompleto</option>
+                <option value="Cliente desistiu">Cliente desistiu</option>
+            </select>
+            <button class="btn-urgente" onclick="filtrarUrgentes()">⚠️ Ver Atrasados</button>
+            <button onclick="buscarContatos()" title="Atualizar dados">🔄</button>
+        </div>
+    </div>
+
+    <table id="tabelaContatos">
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Final Tel</th>
+                <th>Status</th>
+                <th>CNPJ</th>
+                <th>Vidas</th>
+                <th>Operadora</th>
+                <th>1º Contato</th>
+                <th>Retorno Prev.</th>
+                <th>Data Solicitada</th>
+                <th>Valor Cotação</th>
+                <th>Observações</th>
+            </tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+</div>
+
+<div id="modalAtendimento" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h3 id="modal_nome_cliente" style="margin:0">Nome do Cliente</h3>
+                <small id="modal_detalhe_cliente" style="color:#666"></small>
+            </div>
+            <span style="cursor:pointer; font-size:24px" onclick="fecharModal()">&times;</span>
+        </div>
+        <form id="formAtualizar">
+            <input type="hidden" name="id" id="edit_id">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Status:</label>
+                    <select name="status_contato" id="edit_status" style="width:100%" onchange="sugerirProximaData()">
+                        <option value="Novo">Novo</option>
+                        <option value="Contato realizado">Contato realizado</option>
+                        <option value="Contato sem êxito">Contato sem êxito</option>
+                        <option value="Incompleto">Incompleto</option>
+                        <option value="Cliente desistiu">Cliente desistiu</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Próximo Retorno:</label>
+                    <input type="date" name="data_retorno_prevista" id="edit_retorno" style="width:100%">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display:block; font-weight:bold; margin-bottom:5px;">Valor da Cotação (R$):</label>
+                <input type="number" step="0.01" name="valor_cotacao" id="edit_valor" style="width:100%">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display:block; font-weight:bold; margin-bottom:5px;">Novas Observações:</label>
+                <textarea name="observacoes" id="edit_obs" rows="3" style="width:100%" placeholder="Descreva o que foi conversado agora..."></textarea>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+                <label style="font-weight:bold; font-size: 13px; color: #004a8d;">📜 Histórico Anterior:</label>
+                <div id="historico_texto" class="timeline"></div>
+            </div>
+
+            <button type="submit" class="btn-save">Salvar Atualização</button>
+        </form>
+    </div>
+</div>
+
+<script>
+let todosOsContatos = [];
+
+function buscarContatos() {
+    const tbody = document.getElementById('corpoTabela');
+    tbody.innerHTML = '<tr><td colspan="11">Carregando dados...</td></tr>';
+
+    fetch('actions/listar_contatos.php')
+    .then(response => response.json())
+    .then(data => {
+        todosOsContatos = data;
+        renderizarTabela(data);
+    })
+    .catch(error => {
+        tbody.innerHTML = '<tr><td colspan="11" style="color:red">Erro ao carregar dados.</td></tr>';
+    });
+}
+
+function renderizarTabela(contatos) {
+    const tbody = document.getElementById('corpoTabela');
+    tbody.innerHTML = '';
+    const hoje = new Date().toISOString().split('T')[0];
+
+    contatos.forEach(c => {
+        let classeBadge = 'status-novo';
+        if (c.status_contato === 'Contato realizado') classeBadge = 'status-sucesso';
+        if (c.status_contato === 'Contato sem êxito') classeBadge = 'status-alerta';
+        if (c.status_contato === 'Cliente desistiu') classeBadge = 'status-erro';
+
+        let classeUrgencia = (c.data_retorno_prevista < hoje && c.status_contato !== 'Contato realizado' && c.data_retorno_prevista !== '0000-00-00') ? 'atrasado' : '';
+
+        const valorFormatado = c.valor_cotacao ? 'R$ ' + parseFloat(c.valor_cotacao).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '-';
+
+        tbody.innerHTML += `
+            <tr class="${classeUrgencia}">
+                <td class="nome-link" onclick='abrirModal(${JSON.stringify(c)})'><strong>${c.nome_cliente}</strong></td>
+                <td>${c.final_telefone || '-'}</td>
+                <td><span class="badge ${classeBadge}">${c.status_contato}</span></td>
+                <td><small>${c.cnpj || '-'}</small></td>
+                <td>${c.qtd_vidas || '0'}</td>
+                <td>${c.operadora || '-'}</td>
+                <td>${formatarData(c.data_primeiro_contato)}</td>
+                <td class="data-urgente">${formatarData(c.data_retorno_prevista)}</td>
+                <td>${formatarData(c.data_solicitada_cliente)}</td>
+                <td class="valor">${valorFormatado}</td>
+                <td><small>${c.observacoes ? c.observacoes.substring(0, 30) + '...' : '-'}</small></td>
+            </tr>
+        `;
+    });
+}
+
+// AUTOMAÇÃO: Sugere data baseada no status
+function sugerirProximaData() {
+    const status = document.getElementById('edit_status').value;
+    const campoData = document.getElementById('edit_retorno');
+    let data = new Date();
+
+    if (status === 'Contato sem êxito') {
+        data.setDate(data.getDate() + 1); // Liga amanhã
+        campoData.value = data.toISOString().split('T')[0];
+    } else if (status === 'Incompleto') {
+        data.setDate(data.getDate() + 2); // Dá 2 dias pro cliente
+        campoData.value = data.toISOString().split('T')[0];
+    } else if (status === 'Contato realizado' || status === 'Cliente desistiu') {
+        campoData.value = ""; // Remove da agenda
+    }
+}
+
+function abrirModal(contato) {
+    document.getElementById('modal_nome_cliente').innerText = contato.nome_cliente;
+    document.getElementById('modal_detalhe_cliente').innerText = `${contato.operadora || 'S/ Operadora'} - ${contato.qtd_vidas || 0} vidas`;
+    document.getElementById('edit_id').value = contato.id;
+    document.getElementById('edit_status').value = contato.status_contato;
+    document.getElementById('edit_valor').value = contato.valor_cotacao || '';
+    document.getElementById('edit_retorno').value = contato.data_retorno_prevista || '';
+    
+    // Mostra o histórico (as observações antigas)
+    document.getElementById('historico_texto').innerText = contato.observacoes || 'Nenhum histórico registrado.';
+    document.getElementById('edit_obs').value = ''; // Limpa para nova digitação
+    
+    document.getElementById('modalAtendimento').style.display = 'block';
+}
+
+function fecharModal() {
+    document.getElementById('modalAtendimento').style.display = 'none';
+}
+
+function filtrarUrgentes() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const urgentes = todosOsContatos.filter(c => {
+        return c.data_retorno_prevista < hoje && c.status_contato !== 'Contato realizado' && c.data_retorno_prevista !== '0000-00-00';
+    });
+    renderizarTabela(urgentes);
+}
+
+document.getElementById('formAtualizar').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.innerText = 'Salvando...';
+    btn.disabled = true;
+
+    fetch('actions/atualizar_contato.php', {
+        method: 'POST',
+        body: new FormData(this)
+    })
+    .then(res => res.json())
+    .then(data => {
+        fecharModal();
+        buscarContatos();
+    })
+    .catch(err => alert('Erro ao atualizar.'))
+    .finally(() => {
+        btn.innerText = 'Salvar Atualização';
+        btn.disabled = false;
+    });
+}
+
+function formatarData(data) {
+    if(!data || data === '0000-00-00') return '-';
+    const partes = data.split('-');
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function filtrarTabela() {
+    const busca = document.getElementById('buscaNome').value.toLowerCase();
+    const status = document.getElementById('filtroStatus').value;
+    const filtrados = todosOsContatos.filter(c => {
+        const correspondeBusca = c.nome_cliente.toLowerCase().includes(busca);
+        const correspondeStatus = status === "" || c.status_contato === status;
+        return correspondeBusca && correspondeStatus;
+    });
+    renderizarTabela(filtrados);
+}
+
+window.onclick = (e) => { if (e.target == document.getElementById('modalAtendimento')) fecharModal(); }
+window.onload = buscarContatos;
+</script>
+
+</body>
+</html>
